@@ -2,7 +2,7 @@ from _typeshed import ReadableBuffer
 import numpy as np
 import json
 from scipy.special import softmax, expit
-from Functions import ReLU, ReLU_derivative, softmax_grad, sigmoid_derivative, MSE, MSE_derivative
+from Functions import ReLU, ReLU_derivative, softmax_grad, sigmoid_derivative, MSE, MSE_derivative, cross_entropy, delta_cross_entropy
 import math
 
 class NeuralNetwork:
@@ -23,9 +23,7 @@ class NeuralNetwork:
         
         # if starting bias is not specified initilize as 1
         if bias == None:
-            self.bias = []
-            for i in range(len(hidden_layers)):
-                self.bias.append(np.ones(hidden_layers[i]))
+            self.bias = [np.ones(hidden_layers) for layer in hidden_layers]
             self.bias.append(np.ones(output_nodes))
         else:
             self.bias = bias
@@ -45,7 +43,7 @@ class NeuralNetwork:
         db = []  # dC/dB
         z_s, a_s = self.query(x)
         deltas = [None] * len(self.weights)  # Error per layer
-        deltas[-1] = self.get_cost_function_derivative(self.cost_function)(y-a_s[-1]) * self.get_activation_function_derivative(
+        deltas[-1] = self.get_cost_function_derivative(self.cost_function)(y, a_s[-1]) * self.get_activation_function_derivative(
             self.activation_functions[-1](z_s[-1]))
         # Perform BackPropagation
         for i in reversed(range(len(deltas)-1)):
@@ -96,29 +94,34 @@ class NeuralNetwork:
         pass
 
     def get_activation_function(str):
-        function_dict = {
+        activation_func = {
             'ReLU': np.vectorize(ReLU),
-            'sigmoid': expit
+            'sigmoid': expit,
+            'softmax': softmax
         }
-        return function_dict[str]
+        return activation_func[str]
 
 
     def get_activation_function_derivative(str):
-        function_dict={
+        activation_derivative={
             'sigmoid': np.vectorize(sigmoid_derivative),
-            'ReLU': np.vectorize(ReLU_derivative)
+            'ReLU': np.vectorize(ReLU_derivative),
+            'softmax': softmax_grad
+            
         }
+        return activation_derivative[str]
 
     def get_cost_function(str):
-        function_dict={
-            'softmax': softmax,
-            'MSE': MSE
+        cost_func={
+            'MSE': MSE,
+            'cross enthropy': cross_entropy
         }
-        return function_dict[str]
+        return cost_func[str]
     
     def get_cost_function_derivative(str):
-        function_dict = {
-            'softmax': softmax_grad,
-            'MSE': MSE_derivative
+        cost_derivative = {
+            'MSE': MSE_derivative,
+            'cross enthropy': delta_cross_entropy
         }
+        return cost_derivative[str]
 
