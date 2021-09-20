@@ -29,12 +29,15 @@ class NeuralNetwork:
             self.bias = bias
         
         #  if starting weights are not specified initilize random weights
-        # with distribution NOTCHOSENYET
-        # TODO choose distribution and implement
+        # with uniform distribution (-6/sqrt(m+n),6/sqrt(m+n))
         if weights == None:
-            self.weights = []
-            for i in range(len(hidden_layers) + 1):
-                pass
+            self.weights = [np.random.uniform(-6.0/math.sqrt(input_nodes + hidden_layers[0]), 
+            6.0/math.sqrt(input_nodes + hidden_layers[0]), size=(hidden_layers[0], input_nodes))]
+            for i in range(len(hidden_layers) - 1):
+                self.weights.append(np.random.uniform(-6.0/math.sqrt(hidden_layers[i] + hidden_layers[i+1]), 
+                6.0/math.sqrt(hidden_layers[i] + hidden_layers[i+1]), size=(hidden_layers[i+1], hidden_layers[i])))
+            self.weights.append(np.random.uniform(-6.0/math.sqrt(hidden_layers[-1] + output_nodes), 
+                6.0/math.sqrt(hidden_layers[-1] + output_nodes), size=(output_nodes, hidden_layers[-1])))
         else:
             self.weights = weights
     # x,y are numpy arrays representing minibatch
