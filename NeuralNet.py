@@ -1,20 +1,25 @@
+from _typeshed import ReadableBuffer
 import numpy as np
 import json
+from scipy.special import softmax, expit
+from Functions import ReLU, ReLU_derivative, softmax_grad, sigmoid_derivative, MSE, MSE_derivative
+import math
 
 class NeuralNetwork:
     # initilize neural network, hidden_layers is a list of the width of each hidden layer
     # activation function is a list of activation function for every hidden layer and output layer,
     # same for derivative
     def __init__(self, hidden_layers, input_nodes, output_nodes,
-     activation_functions, activation_functions_derivative, cost_function,
-      cost_function_derivative, weights=None, bias=None) -> None:
+     activation_functions, cost_function, learning_rate, decay_rate, weights=None, bias=None) -> None:
         self.inodes = input_nodes
         self.onodes = output_nodes
         self.hlayers = hidden_layers
         self.activation_functions = activation_functions
-        self.activation_functions_derivative = activation_functions_derivative
         self.cost_function = cost_function
-        self.cost_function_derivative = cost_function_derivative
+        self.lr = learning_rate
+        self.dr = decay_rate
+        self.accumulated_grad = 0
+
         
         # if starting bias is not specified initilize as 1
         if bias == None:
@@ -36,26 +41,16 @@ class NeuralNetwork:
             self.weights = weights
     # x,y are numpy arrays representing minibatch
     def calculate_gradient(self, x, y):
-        '''partial_derivative = [None for i in range(self.inodes)]
-        partial_derivative = [[None for i in range(self.hidden_layer)] for self.hidden_layer in self.hidden_layers]
-        # nested function to calculate the partial derivatives by backwards propagation
-        def calculate_gradiante_recursive(self, i, j):
-            if i == len(self.hlayers):
-                pass
-            elif i == len(self.hlayers - 1):
-                pass
-            else:
-                for node in range(self.hlayers[i+1]):
-                    pass
-                '''
         dw = []  # dC/dW
         db = []  # dC/dB
         z_s, a_s = self.query(x)
         deltas = [None] * len(self.weights)  # Error per layer
-        deltas[-1] = self.cost_function_derivative(y-a_s[-1]) * self.activation_functions_derivative[-1](z_s[-1])
+        deltas[-1] = self.get_cost_function_derivative(self.cost_function)(y-a_s[-1]) * self.get_activation_function_derivative(
+            self.activation_functions[-1](z_s[-1]))
         # Perform BackPropagation
         for i in reversed(range(len(deltas)-1)):
-            deltas[i] = self.weights[i+1].T.dot(deltas[i+1])*(self.activation_functions_derivative[i](z_s[i]))        
+            deltas[i] = self.weights[i+1].T.dot(deltas[i+1])*(self.get_activation_function_derivative(
+                self.activation_functions[i](z_s[i])))
             batch_size = y.shape[1]
             db = [d.dot(np.ones((batch_size,1)))/float(batch_size) for d in deltas]
             dw = [d.dot(a_s[i].T)/float(batch_size) for i,d in enumerate(deltas)]
@@ -65,8 +60,13 @@ class NeuralNetwork:
 
 
 
-    def train_RMSProp(self, minibatch):
-        pass
+    def train_RMSProp(self, x, y):
+        dw, db = self.calculate_gradient(x, y)
+        self.accumulated_grad = (self.dr * self.accumulated_grad) + (1 - self.dr) * np.dot(
+            np.append(np.copy(dw), np.copy(db), np.append(np.copy(dw), np.copy(db))))
+        coef = -self.lr / math.sqrt(math.pow(10, -6) + self.accumulated_grad)
+        self.weights = [weight + coef * grad for (weight, grad) in zip(self.weights, dw)]
+        self.bias = [bias + coef * grad for (bias, grad) in zip(self.bias, db)]
 
     def train_RMSProp_momentum(self, minibatch):
         pass
@@ -81,7 +81,7 @@ class NeuralNetwork:
         a_s = [a]
         for i in range(len(self.weights)):
             z_s.append(self.weights[i].dot(a) + self.bias[i])
-            a = self.activation_functions[i](z_s[-1])
+            a = self.get_activation_function(self.activation_functions[i](z_s[-1]))
             a_s.append(a)
             return (z_s, a_s)
             
@@ -92,6 +92,33 @@ class NeuralNetwork:
         pass
 
     # generate new neural network from .json
-    def open(path, activation_function, activation_function_derivative,
-    cost_function, cost_function_derivative,):
+    def open(path):
         pass
+
+    def get_activation_function(str):
+        function_dict = {
+            'ReLU': np.vectorize(ReLU),
+            'sigmoid': expit
+        }
+        return function_dict[str]
+
+
+    def get_activation_function_derivative(str):
+        function_dict={
+            'sigmoid': np.vectorize(sigmoid_derivative),
+            'ReLU': np.vectorize(ReLU_derivative)
+        }
+
+    def get_cost_function(str):
+        function_dict={
+            'softmax': softmax,
+            'MSE': MSE
+        }
+        return function_dict[str]
+    
+    def get_cost_function_derivative(str):
+        function_dict = {
+            'softmax': softmax_grad,
+            'MSE': MSE_derivative
+        }
+
