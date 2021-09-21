@@ -1,4 +1,3 @@
-from _typeshed import ReadableBuffer
 import numpy as np
 import json
 from scipy.special import softmax, expit
@@ -23,7 +22,7 @@ class NeuralNetwork:
         
         # if starting bias is not specified initilize as 1
         if bias == None:
-            self.bias = [np.ones(hidden_layers) for layer in hidden_layers]
+            self.bias = [np.ones(layer) for layer in hidden_layers]
             self.bias.append(np.ones(output_nodes))
         else:
             self.bias = bias
@@ -40,23 +39,25 @@ class NeuralNetwork:
                 6.0/math.sqrt(hidden_layers[-1] + output_nodes), size=(output_nodes, hidden_layers[-1])))
         else:
             self.weights = weights
+
     # x,y are numpy arrays representing minibatch
     def calculate_gradient(self, x, y):
         dw = []  # dC/dW
         db = []  # dC/dB
         z_s, a_s = self.query(x)
+        print(a_s[-1].shape)
         deltas = [None] * len(self.weights)  # Error per layer
         deltas[-1] = self.get_cost_function_derivative(self.cost_function)(y, a_s[-1]) * self.get_activation_function_derivative(
-            self.activation_functions[-1](z_s[-1]))
+            self.activation_functions[-1])(z_s[-1])
         # Perform BackPropagation
         for i in reversed(range(len(deltas)-1)):
             deltas[i] = self.weights[i+1].T.dot(deltas[i+1])*(self.get_activation_function_derivative(
-                self.activation_functions[i](z_s[i])))
-            batch_size = y.shape[1]
-            db = [d.dot(np.ones((batch_size,1)))/float(batch_size) for d in deltas]
-            dw = [d.dot(a_s[i].T)/float(batch_size) for i,d in enumerate(deltas)]
-            # return the derivitives respect to weight matrix and biases
-            return dw, db
+                self.activation_functions[i])(z_s[i]))
+        batch_size = 1 #TODO fix batch
+        db = deltas
+        dw = [d.dot(a_s[i].T) for i,d in enumerate(deltas)]
+        # return the derivitives respect to weight matrix and biases
+        return dw, db
         
 
 
@@ -82,9 +83,13 @@ class NeuralNetwork:
         a_s = [a]
         for i in range(len(self.weights)):
             z_s.append(self.weights[i].dot(a) + self.bias[i])
-            a = self.get_activation_function(self.activation_functions[i](z_s[-1]))
+            a = self.get_activation_function(self.activation_functions[i])(z_s[-1])
             a_s.append(a)
-            return (z_s, a_s)
+        return (z_s, a_s)
+
+    
+    def run(self, x):
+        return self.query(x)[1][-1]
             
 
 
@@ -96,7 +101,7 @@ class NeuralNetwork:
     def open(path):
         pass
 
-    def get_activation_function(str):
+    def get_activation_function(self, str):
         activation_func = {
             'ReLU': np.vectorize(ReLU),
             'sigmoid': expit,
@@ -105,7 +110,7 @@ class NeuralNetwork:
         return activation_func[str]
 
 
-    def get_activation_function_derivative(str):
+    def get_activation_function_derivative(self, str):
         activation_derivative={
             'sigmoid': np.vectorize(sigmoid_derivative),
             'ReLU': np.vectorize(ReLU_derivative),
@@ -114,14 +119,14 @@ class NeuralNetwork:
         }
         return activation_derivative[str]
 
-    def get_cost_function(str):
+    def get_cost_function(self, str):
         cost_func={
-            'MSE': MSE,
+            'MSE': np.vectorize(MSE),
             'cross enthropy': cross_entropy
         }
         return cost_func[str]
     
-    def get_cost_function_derivative(str):
+    def get_cost_function_derivative(self, str):
         cost_derivative = {
             'MSE': MSE_derivative,
             'cross enthropy': delta_cross_entropy
